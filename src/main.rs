@@ -106,7 +106,7 @@ impl World {
         let mut default = Self {
             rows: [[PixelState::Off; WIDTH_USIZE]; HEIGHT_USIZE],
         };
-        default.rows[0][0] = PixelState::On;
+        default.rows[0][WIDTH_USIZE / 2] = PixelState::On;
 
         default
     }
@@ -162,8 +162,8 @@ impl World {
             let col = i % WIDTH_USIZE;
 
             let rgba = match self.rows[row][col] {
-                PixelState::On => [0xff, 0x00, 0x00, 0xff],
-                PixelState::Off => [0x00, 0xff, 0x00, 0xff],
+                PixelState::On => [0xf3, 0x7c, 0x1f, 0xff],
+                PixelState::Off => [0x59, 0x57, 0x52, 0xff],
             };
             rgba_pixel.copy_from_slice(&rgba);
         }
