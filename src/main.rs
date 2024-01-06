@@ -116,14 +116,19 @@ impl World {
         for i in 0..(WIDTH_USIZE * HEIGHT_USIZE) {
             let row = i / WIDTH_USIZE;
             let col = i % WIDTH_USIZE;
+
+            // If the current column is 0, then look to the right-most column,
+            // to treat the row as if it wraps around
             let left_neighbor_state = if col == 0 {
-                PixelState::Off
+                self.rows[row][WIDTH_USIZE - 1]
             } else {
                 self.rows[row][col - 1]
             };
 
+            // If the current column is at the end of the row, look to the
+            // left-most colum to treat the row as if it wraps around
             let right_neighbor_state = if col + 1 >= WIDTH_USIZE {
-                PixelState::Off
+                self.rows[row][0]
             } else {
                 self.rows[row][col + 1]
             };
