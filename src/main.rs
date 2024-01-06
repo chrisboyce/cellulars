@@ -146,7 +146,7 @@ impl World {
             let output_state = match input_state {
                 [PixelState::On, PixelState::On, PixelState::On] => PixelState::Betwixt,
                 [PixelState::On, PixelState::On, PixelState::Off] => PixelState::Off,
-                [PixelState::On, PixelState::Off, PixelState::On] => PixelState::Off,
+                [PixelState::On, PixelState::Off, PixelState::On] => PixelState::On,
                 [PixelState::On, PixelState::Off, PixelState::Off] => PixelState::On,
                 [PixelState::Off, PixelState::On, PixelState::On] => PixelState::On,
                 [PixelState::Off, PixelState::On, PixelState::Off] => PixelState::On,
