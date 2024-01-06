@@ -24,6 +24,7 @@ const HEIGHT_USIZE: usize = HEIGHT as usize;
 #[derive(Copy, Clone)]
 enum PixelState {
     On,
+    Betwixt,
     Off,
 }
 
@@ -143,7 +144,7 @@ impl World {
             // neighbor, current value, and right neighbor, the output state
             // can be varied.
             let output_state = match input_state {
-                [PixelState::On, PixelState::On, PixelState::On] => PixelState::Off,
+                [PixelState::On, PixelState::On, PixelState::On] => PixelState::Betwixt,
                 [PixelState::On, PixelState::On, PixelState::Off] => PixelState::Off,
                 [PixelState::On, PixelState::Off, PixelState::On] => PixelState::Off,
                 [PixelState::On, PixelState::Off, PixelState::Off] => PixelState::On,
@@ -151,6 +152,25 @@ impl World {
                 [PixelState::Off, PixelState::On, PixelState::Off] => PixelState::On,
                 [PixelState::Off, PixelState::Off, PixelState::On] => PixelState::On,
                 [PixelState::Off, PixelState::Off, PixelState::Off] => PixelState::Off,
+                [PixelState::On, PixelState::On, PixelState::Betwixt] => PixelState::Off,
+                [PixelState::On, PixelState::Betwixt, PixelState::On] => PixelState::On,
+                [PixelState::On, PixelState::Betwixt, PixelState::Betwixt] => PixelState::Betwixt,
+                [PixelState::On, PixelState::Betwixt, PixelState::Off] => PixelState::Off,
+                [PixelState::On, PixelState::Off, PixelState::Betwixt] => PixelState::On,
+                [PixelState::Betwixt, PixelState::On, PixelState::On] => PixelState::Betwixt,
+                [PixelState::Betwixt, PixelState::On, PixelState::Betwixt] => PixelState::Off,
+                [PixelState::Betwixt, PixelState::On, PixelState::Off] => PixelState::On,
+                [PixelState::Betwixt, PixelState::Betwixt, PixelState::On] => PixelState::Betwixt,
+                [PixelState::Betwixt, PixelState::Betwixt, PixelState::Betwixt] => PixelState::Off,
+                [PixelState::Betwixt, PixelState::Betwixt, PixelState::Off] => PixelState::On,
+                [PixelState::Betwixt, PixelState::Off, PixelState::On] => PixelState::Betwixt,
+                [PixelState::Betwixt, PixelState::Off, PixelState::Betwixt] => PixelState::Off,
+                [PixelState::Betwixt, PixelState::Off, PixelState::Off] => PixelState::On,
+                [PixelState::Off, PixelState::On, PixelState::Betwixt] => PixelState::Betwixt,
+                [PixelState::Off, PixelState::Betwixt, PixelState::On] => PixelState::Off,
+                [PixelState::Off, PixelState::Betwixt, PixelState::Betwixt] => PixelState::On,
+                [PixelState::Off, PixelState::Betwixt, PixelState::Off] => PixelState::Off,
+                [PixelState::Off, PixelState::Off, PixelState::Betwixt] => PixelState::Off,
             };
 
             // Set the value for the next row
@@ -168,8 +188,9 @@ impl World {
             let col = i % WIDTH_USIZE;
 
             let rgba = match self.rows[row][col] {
-                PixelState::On => [0xf3, 0x7c, 0x1f, 0xff],
-                PixelState::Off => [0x59, 0x57, 0x52, 0xff],
+                PixelState::On => [0xa8, 0x8c, 0x7d, 0xff],
+                PixelState::Off => [0x54, 0x73, 0x8e, 0xff],
+                PixelState::Betwixt => [0x9d, 0xba, 0x94, 0xff],
             };
             rgba_pixel.copy_from_slice(&rgba);
         }
