@@ -27,6 +27,7 @@ enum PixelState {
     Off,
 }
 
+// Unused so far..
 struct Rule {
     input: [PixelState; 3],
     output: PixelState,
