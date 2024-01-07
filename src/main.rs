@@ -24,6 +24,8 @@ const HEIGHT_USIZE: usize = HEIGHT as usize;
 #[derive(Copy, Clone)]
 enum PixelState {
     On,
+    /// An 8-bit (0-255) value representing some intermediate state
+    Betwixt(u8),
     Off,
 }
 
@@ -74,6 +76,20 @@ fn main() -> Result<(), Error> {
 
         // Handle input events
         if input.update(&event) {
+            if input.key_pressed(VirtualKeyCode::R) {
+                for i in 0..HEIGHT_USIZE {
+                    for j in 0..WIDTH_USIZE {
+                        world.rows[i][j] = if rand::random() {
+                            PixelState::On
+                        } else {
+                            PixelState::Off
+                        }
+                    }
+                }
+                // world.rows[rand::random::<usize>() % HEIGHT_USIZE]
+                //     [rand::random::<usize>() % WIDTH_USIZE] = PixelState::On;
+                return;
+            }
             // Close events
             if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
                 *control_flow = ControlFlow::Exit;
@@ -110,11 +126,16 @@ impl World {
             generation: 0,
         };
         for i in 0..WIDTH_USIZE {
-            default.rows[0][i] = if rand::random() {
-                PixelState::On
-            } else {
-                PixelState::Off
-            };
+            for j in 0..HEIGHT_USIZE {
+                let value: f32 = rand::random();
+                default.rows[j][i] = if value < 0.1 {
+                    PixelState::Off
+                } else if value < 0.2 {
+                    PixelState::Betwixt((value * 1000.0) as u8)
+                } else {
+                    PixelState::On
+                };
+            }
         }
 
         default
@@ -210,6 +231,12 @@ impl World {
             let rgba = match self.rows[row][col] {
                 PixelState::On => [0xf3, 0x7c, 0x1f, 0xff],
                 PixelState::Off => [0x59, 0x57, 0x52, 0xff],
+                PixelState::Betwixt(value) => [
+                    0xf3 % value,
+                    0x7c / value,
+                    0x1f_u8.wrapping_add(value),
+                    0xff,
+                ],
             };
             rgba_pixel.copy_from_slice(&rgba);
         }
