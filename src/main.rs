@@ -37,6 +37,7 @@ struct World {
     /// Each row contains `WIDTH` number of pixels, and each pixel is
     /// represented by their `State`
     rows: [[PixelState; WIDTH_USIZE]; HEIGHT_USIZE],
+    generation: u64,
 }
 
 fn main() -> Result<(), Error> {
@@ -106,58 +107,97 @@ impl World {
     fn new() -> Self {
         let mut default = Self {
             rows: [[PixelState::Off; WIDTH_USIZE]; HEIGHT_USIZE],
+            generation: 0,
         };
-        default.rows[0][WIDTH_USIZE / 2] = PixelState::On;
+        for i in 0..WIDTH_USIZE {
+            default.rows[0][i] = if rand::random() {
+                PixelState::On
+            } else {
+                PixelState::Off
+            };
+        }
 
         default
     }
 
     fn update(&mut self) {
+        let mut next_state = [[PixelState::Off; WIDTH_USIZE]; HEIGHT_USIZE];
         for i in 0..(WIDTH_USIZE * HEIGHT_USIZE) {
             let row = i / WIDTH_USIZE;
             let col = i % WIDTH_USIZE;
 
-            // If the current column is 0, then look to the right-most column,
-            // to treat the row as if it wraps around
-            let left_neighbor_state = if col == 0 {
-                self.rows[row][WIDTH_USIZE - 1]
-            } else {
-                self.rows[row][col - 1]
-            };
+            // Calculate the X index for neighbors on the left. If the current
+            // cell is at X=0, then look at the right-most column to treat the
+            // row as if it wraps around.
+            let left_neighbor_x_index = if col == 0 { WIDTH_USIZE - 1 } else { col - 1 };
 
-            // If the current column is at the end of the row, look to the
-            // left-most colum to treat the row as if it wraps around
-            let right_neighbor_state = if col + 1 >= WIDTH_USIZE {
-                self.rows[row][0]
-            } else {
-                self.rows[row][col + 1]
-            };
+            // X index for neighbors to the right. If the current cell is on the
+            // right-most index, we "wrap around" and look at the left-most (0)
+            // index.
+            let right_neighbor_x_index = if col == WIDTH_USIZE - 1 { 0 } else { col + 1 };
 
-            let input_state = [
-                left_neighbor_state,
-                self.rows[row][col],
-                right_neighbor_state,
+            // Calculate the Y index for neighbors above the current row. If the
+            // current row is 0, we "wrap around" to the bottom row
+            let upper_neighbor_y_index = if row == 0 { HEIGHT_USIZE - 1 } else { row - 1 };
+
+            let lower_neighbor_y_index = if row == HEIGHT_USIZE - 1 { 0 } else { row + 1 };
+
+            // We now have all the indices we need to reference the neighbors of
+            // the current cell, and we can construct the current state by using
+            // the upper/lower and left/right indices to reference neighboring
+            // cells
+            let state = (
+                self.rows[upper_neighbor_y_index][left_neighbor_x_index], // Upper Left
+                self.rows[upper_neighbor_y_index][col],                   // Upper middle
+                self.rows[upper_neighbor_y_index][right_neighbor_x_index], // upper right
+                self.rows[row][left_neighbor_x_index],                    // Middle left
+                self.rows[row][col],                                      // Current cell
+                self.rows[row][right_neighbor_x_index],                   // Middle right
+                self.rows[lower_neighbor_y_index][left_neighbor_x_index], // Lower left
+                self.rows[lower_neighbor_y_index][col],                   // Lower middle
+                self.rows[lower_neighbor_y_index][right_neighbor_x_index], // Lower right
+            );
+
+            let neighbors = [
+                state.0, state.1, state.2, state.3, state.5, state.6, state.7, state.8,
             ];
+            // Given the current state, determine the next state for the current
+            // cell. We use the rules for Conways Game of Life to determine
+            // the next state, which depends on the number of neighboring cells.
 
-            // This defines the rules for cell progression. Given the left
-            // neighbor, current value, and right neighbor, the output state
-            // can be varied.
-            let output_state = match input_state {
-                [PixelState::On, PixelState::On, PixelState::On] => PixelState::Off,
-                [PixelState::On, PixelState::On, PixelState::Off] => PixelState::Off,
-                [PixelState::On, PixelState::Off, PixelState::On] => PixelState::Off,
-                [PixelState::On, PixelState::Off, PixelState::Off] => PixelState::On,
-                [PixelState::Off, PixelState::On, PixelState::On] => PixelState::On,
-                [PixelState::Off, PixelState::On, PixelState::Off] => PixelState::On,
-                [PixelState::Off, PixelState::Off, PixelState::On] => PixelState::On,
-                [PixelState::Off, PixelState::Off, PixelState::Off] => PixelState::Off,
+            let current_state = self.rows[row][col];
+            let living_neighbor_count = neighbors
+                .into_iter()
+                .filter(|cell| matches!(cell, PixelState::On))
+                .count();
+
+            // The rules for Conway's game of life are:
+            // 1) Any live cell with fewer than two live neighbours dies, as if by underpopulation.
+            // 2) Any live cell with two or three live neighbours lives on to the next generation.
+            // 3) Any live cell with more than three live neighbours dies, as if by overpopulation.
+            // 4) Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
+
+            let next_cell_state = if matches!(current_state, PixelState::On) {
+                if living_neighbor_count < 2 {
+                    PixelState::Off
+                } else if (living_neighbor_count == 2 || living_neighbor_count == 3) {
+                    PixelState::On
+                } else if living_neighbor_count > 3 {
+                    PixelState::Off
+                } else {
+                    current_state
+                }
+            } else {
+                if living_neighbor_count == 3 {
+                    PixelState::On
+                } else {
+                    current_state
+                }
             };
 
-            // Set the value for the next row
-            if row < HEIGHT_USIZE - 1 {
-                self.rows[row + 1][col] = output_state;
-            }
+            next_state[row][col] = next_cell_state;
         }
+        self.rows = next_state;
     }
 
     fn draw(&self, frame: &mut [u8]) {
