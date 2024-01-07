@@ -74,6 +74,21 @@ fn main() -> Result<(), Error> {
 
         // Handle input events
         if input.update(&event) {
+            if input.key_pressed(VirtualKeyCode::R) {
+                for i in 0..HEIGHT_USIZE {
+                    for j in 0..WIDTH_USIZE {
+                        world.rows[i][j] = if rand::random() {
+                            PixelState::On
+                        } else {
+                            PixelState::Off
+                        }
+                    }
+                }
+                // world.rows[rand::random::<usize>() % HEIGHT_USIZE]
+                //     [rand::random::<usize>() % WIDTH_USIZE] = PixelState::On;
+                return;
+            }
+
             // Close events
             if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
                 *control_flow = ControlFlow::Exit;
