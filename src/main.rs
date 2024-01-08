@@ -194,10 +194,12 @@ impl World {
 
             let next_cell_state = if matches!(current_state, PixelState::On) {
                 if living_neighbor_count < 2 {
+                //if living_neighbor_count < 1 {   
                     PixelState::Off
                 } else if (living_neighbor_count == 2 || living_neighbor_count == 3) {
                     PixelState::On
-                } else if living_neighbor_count > 3 {
+                } else if living_neighbor_count > 2 {    
+                //} else if living_neighbor_count > 3 {
                     PixelState::Off
                 } else {
                     current_state
@@ -223,8 +225,11 @@ impl World {
             let col = i % WIDTH_USIZE;
 
             let rgba = match self.rows[row][col] {
-                PixelState::On => [0xf3, 0x7c, 0x1f, 0xff],
-                PixelState::Off => [0x59, 0x57, 0x52, 0xff],
+                //PixelState::On => [0xf3, 0x7c, 0x1f, 0xff], //Reddish brown w/full opacity
+                //PixelState::On => [0x00, 0xAF, 0xFF, 0xff], //light blue w/full opacity
+                PixelState::Off => [0x00, 0x00, 0x00, 0xff], //Black
+                //PixelState::Off => [0x59, 0x57, 0x52, 0xff],
+                PixelState::On => [0xFF, 0xFF, 0xFF, 0xFF], //White
             };
             rgba_pixel.copy_from_slice(&rgba);
         }
