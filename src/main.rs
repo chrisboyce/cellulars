@@ -227,9 +227,9 @@ impl World {
             let rgba = match self.rows[row][col] {
                 //PixelState::On => [0xf3, 0x7c, 0x1f, 0xff], //Reddish brown w/full opacity
                 //PixelState::On => [0x00, 0xAF, 0xFF, 0xff], //light blue w/full opacity
+                PixelState::On => [0xFF, 0xFF, 0xFF, 0xFF], //White
                 PixelState::Off => [0x00, 0x00, 0x00, 0xff], //Black
                 //PixelState::Off => [0x59, 0x57, 0x52, 0xff],
-                PixelState::On => [0xFF, 0xFF, 0xFF, 0xFF], //White
             };
             rgba_pixel.copy_from_slice(&rgba);
         }
