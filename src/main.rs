@@ -10,8 +10,10 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 use winit_input_helper::WinitInputHelper;
 
-const WIDTH: u32 = 320;
-const HEIGHT: u32 = 240;
+//const WIDTH: u32 = 320;
+//const HEIGHT: u32 = 240;
+const WIDTH: u32 = 640;
+const HEIGHT: u32 = 480;
 
 // Convenience variable so we don't have to use `as usize` to "cast" the `u32`
 // (4 bytes) to a `usize` (4 bytes on a 64-bit system, but the actual length
@@ -47,7 +49,7 @@ fn main() -> Result<(), Error> {
     let window = {
         let size = LogicalSize::new(WIDTH, HEIGHT);
         WindowBuilder::new()
-            .with_title("celluars")
+            .with_title("cellulars")
             .with_inner_size(size)
             .with_min_inner_size(size)
             .build(&event_loop)
