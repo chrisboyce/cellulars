@@ -174,7 +174,7 @@ impl Gui {
         egui::Window::new("Settings")
             .open(&mut self.window_open)
             .show(ctx, |ui| {
-                ui.label("Rule:");
+                ui.label("Rule Seed:");
                 if ui.text_edit_singleline(&mut self.rule_seed).changed() {
                     if let Ok(seed_as_u32) = str::parse::<u32>(&self.rule_seed) {
                         self.new_seed = Some(seed_as_u32);
