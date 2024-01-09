@@ -20,6 +20,9 @@ pub(crate) struct Framework {
 
 /// Example application state. A real application will need a lot more state than this.
 struct Gui {
+    rule_seed: String,
+    initial_seed: String,
+    new_seed: Option<u32>,
     /// Only show the egui window when true.
     window_open: bool,
 }
@@ -56,6 +59,13 @@ impl Framework {
             textures,
             gui,
         }
+    }
+
+    pub(crate) fn get_rule(&self) -> Option<u32> {
+        self.gui.new_seed
+    }
+    pub(crate) fn clear_new_rule(&mut self) {
+        self.gui.new_seed = None;
     }
 
     /// Handle input events from the window manager.
@@ -140,7 +150,12 @@ impl Framework {
 impl Gui {
     /// Create a `Gui`.
     fn new() -> Self {
-        Self { window_open: true }
+        Self {
+            window_open: true,
+            rule_seed: "0".to_string(),
+            initial_seed: "0".to_string(),
+            new_seed: Some(0),
+        }
     }
 
     /// Create the UI using egui.
@@ -156,19 +171,28 @@ impl Gui {
             });
         });
 
-        egui::Window::new("Hello, egui!")
+        egui::Window::new("Settings")
             .open(&mut self.window_open)
             .show(ctx, |ui| {
-                ui.label("This example demonstrates using egui with pixels.");
-                ui.label("Made with 💖 in San Francisco!");
+                ui.label("Rule:");
+                if ui.text_edit_singleline(&mut self.rule_seed).changed() {
+                    if let Ok(seed_as_u32) = str::parse::<u32>(&self.rule_seed) {
+                        self.new_seed = Some(seed_as_u32);
+                    }
+                }
 
-                ui.separator();
+                // ui.label("Initial Seed:");
+                // if ui.text_edit_singleline(&mut self.initial_seed).changed() {
+                //     println!("{}", &self.initial_seed);
+                // }
 
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x /= 2.0;
-                    ui.label("Learn more about egui at");
-                    ui.hyperlink("https://docs.rs/egui");
-                });
+                // ui.separator();
+
+                // ui.horizontal(|ui| {
+                //     ui.spacing_mut().item_spacing.x /= 2.0;
+                //     ui.label("Learn more about egui at");
+                //     ui.hyperlink("https://docs.rs/egui");
+                // });
             });
     }
 }

@@ -6,6 +6,8 @@ use cell::{CellState, InputState, RuleState, Rules};
 use error_iter::ErrorIter as _;
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
+use rand::prelude::*;
+use rand_chacha::ChaCha8Rng;
 use winit::dpi::LogicalSize;
 use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -40,7 +42,31 @@ mod cell {
     #[derive(Copy, Clone, Eq, PartialEq, Hash)]
     pub struct InputState(pub [CellState; 9]);
 
+    pub struct Rule {
+        input: InputState,
+        output: CellState,
+    }
     pub type Rules = HashMap<InputState, CellState>;
+
+    impl From<u32> for Rule {
+        fn from(rule: u32) -> Self {
+            let mut cell_states = [CellState::Off; 9];
+            for i in 0..cell_states.len() {
+                if (0b1 << i) & rule != 0 {
+                    cell_states[i] = CellState::On;
+                }
+            }
+            let output = if (0b1 << 9) & rule != 0 {
+                CellState::On
+            } else {
+                CellState::Off
+            };
+            Rule {
+                input: InputState(cell_states),
+                output,
+            }
+        }
+    }
 }
 /// Representation of the application state. In this example, a box will bounce around the screen.
 struct World {
@@ -81,6 +107,20 @@ fn main() -> Result<(), Error> {
     let mut world = World::new();
 
     event_loop.run(move |event, _, control_flow| {
+        if let Some(new_rule) = framework.get_rule() {
+            world.rules = randomize_rules(new_rule as u64);
+            for i in 0..HEIGHT_USIZE {
+                for j in 0..WIDTH_USIZE {
+                    world.rows[i][j] = if rand::random::<f32>() < 0.1 {
+                        CellState::On
+                    } else {
+                        CellState::Off
+                    };
+                }
+            }
+
+            framework.clear_new_rule();
+        }
         // Handle input events
         if input.update(&event) {
             // Close events
@@ -104,9 +144,9 @@ fn main() -> Result<(), Error> {
                 framework.resize(size.width, size.height);
             }
 
-            if input.key_pressed(VirtualKeyCode::U) {
-                world.rules = randomize_rules();
-            }
+            // if input.key_pressed(VirtualKeyCode::U) {
+            //     world.rules = randomize_rules();
+            // }
             if input.key_pressed(VirtualKeyCode::K) {
                 for i in 0..HEIGHT_USIZE {
                     for j in 0..WIDTH_USIZE {
@@ -180,10 +220,11 @@ fn log_error<E: std::error::Error + 'static>(method_name: &str, err: E) {
     }
 }
 
-fn randomize_rules() -> Rules {
+fn randomize_rules(seed: u64) -> Rules {
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let mut rules = Rules::with_capacity(362880);
     for i in 0..362880_u32 {
-        let rule = if rand::random::<f32>() < 0.1 {
+        let rule = if rng.gen::<f32>() < 0.1 {
             CellState::On
         } else {
             CellState::Off
@@ -195,7 +236,7 @@ fn randomize_rules() -> Rules {
 
 impl World {
     fn new() -> Self {
-        let rules = randomize_rules();
+        let rules = randomize_rules(0);
 
         let mut default = Self {
             rows: [[CellState::Off; WIDTH_USIZE]; HEIGHT_USIZE],
@@ -290,43 +331,6 @@ impl World {
                 None => CellState::Off,
             };
 
-            // let neighbors = [
-            //     state[0], state[1], state[2], state[3], state[5], state[6], state[7], state[8],
-            // ];
-            // // Given the current state, determine the next state for the current
-            // // cell. We use the rules for Conways Game of Life to determine
-            // // the next state, which depends on the number of neighboring cells.
-
-            // let current_state = self.rows[row][col];
-            // let living_neighbor_count = neighbors
-            //     .into_iter()
-            //     .filter(|cell| matches!(cell, PixelState::On))
-            //     .count();
-
-            // // The rules for Conway's game of life are:
-            // // 1) Any live cell with fewer than two live neighbours dies, as if by underpopulation.
-            // // 2) Any live cell with two or three live neighbours lives on to the next generation.
-            // // 3) Any live cell with more than three live neighbours dies, as if by overpopulation.
-            // // 4) Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
-
-            // let next_cell_state = if matches!(current_state, PixelState::On) {
-            //     if living_neighbor_count < 2 {
-            //         PixelState::Off
-            //     } else if (living_neighbor_count == 2 || living_neighbor_count == 3) {
-            //         PixelState::On
-            //     } else if living_neighbor_count > 3 {
-            //         PixelState::Off
-            //     } else {
-            //         current_state
-            //     }
-            // } else {
-            //     if living_neighbor_count == 3 {
-            //         PixelState::On
-            //     } else {
-            //         current_state
-            //     }
-            // };
-
             next_state[row][col] = next_cell_state;
         }
         self.rows = next_state;
@@ -345,17 +349,16 @@ impl World {
                 // CellState::On => [0xf3, 0x7c, 0x1f, 0xff],
                 // CellState::Off => [0x59, 0x57, 0x52, 0xff],
             };
+            // let rgba = [
+            //     rgba[0] / std::cmp::max(rgba_pixel[0], 1),
+            //     rgba[1] / std::cmp::max(rgba_pixel[1], 1),
+            //     rgba[2] / std::cmp::max(rgba_pixel[2], 1),
+            //     rgba[3] / std::cmp::max(rgba_pixel[3], 1),
+            // ];
             rgba_pixel.copy_from_slice(&rgba);
         }
     }
 }
-
-// All we really want to do is to be able to convert a 16-bit number into our
-// rule state.
-// struct R{
-//     input: [PixelState;9],
-//     output: PixelState
-// };
 
 impl From<u32> for RuleState {
     fn from(value: u32) -> Self {
