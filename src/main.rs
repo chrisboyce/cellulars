@@ -1,8 +1,8 @@
 #![deny(clippy::all)]
 #![forbid(unsafe_code)]
 
-use std::collections::HashMap;
-
+use crate::gui::Framework;
+use cell::{CellState, InputState, RuleState, Rules};
 use error_iter::ErrorIter as _;
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
@@ -12,87 +12,98 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 use winit_input_helper::WinitInputHelper;
 
-const WIDTH: u32 = 256;
-const HEIGHT: u32 = 256;
+mod gui;
 
+const WIDTH: u32 = 640;
+const HEIGHT: u32 = 480;
+const BOX_SIZE: i16 = 64;
 // Convenience variable so we don't have to use `as usize` to "cast" the `u32`
 // (4 bytes) to a `usize` (4 bytes on a 64-bit system, but the actual length
 // it varies depending on the architecture you're compiling for) whenever we
 // want to use the height or width with array indices (which are usually
 // represented with `usize`)
-const WIDTH_USIZE: usize = WIDTH as usize;
-const HEIGHT_USIZE: usize = HEIGHT as usize;
+const WIDTH_USIZE: usize = crate::WIDTH as usize;
+const HEIGHT_USIZE: usize = crate::HEIGHT as usize;
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-enum CellState {
-    On,
-    Off,
+mod cell {
+    use std::collections::HashMap;
+
+    #[derive(Copy, Clone, Eq, PartialEq, Hash)]
+    pub enum CellState {
+        On,
+        Off,
+    }
+
+    #[derive(Copy, Clone, Eq, PartialEq, Hash)]
+    pub struct RuleState(pub u32);
+
+    #[derive(Copy, Clone, Eq, PartialEq, Hash)]
+    pub struct InputState(pub [CellState; 9]);
+
+    pub type Rules = HashMap<InputState, CellState>;
 }
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-struct RuleState(u32);
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-struct InputState([CellState; 9]);
-
-// Unused so far..
-struct Rule {
-    input: [CellState; 3],
-    output: CellState,
-}
-
-type Rules = HashMap<InputState, CellState>;
-
+/// Representation of the application state. In this example, a box will bounce around the screen.
 struct World {
-    /// Each row contains `WIDTH` number of pixels, and each pixel is
-    /// represented by their `State`
-    rows: [[CellState; WIDTH_USIZE]; HEIGHT_USIZE],
-    rules: Rules,
+    rows: [[cell::CellState; WIDTH_USIZE]; HEIGHT_USIZE],
+    rules: cell::Rules,
     generation: u32,
 }
 
 fn main() -> Result<(), Error> {
-    // let mut rules = [PixelState::Off; 362880];
-    // for rule in rules.iter_mut() {
-    //     *rule = if rand::random() {
-    //         PixelState::On
-    //     } else {
-    //         PixelState::Off
-    //     };
-    // }
     env_logger::init();
     let event_loop = EventLoop::new();
     let mut input = WinitInputHelper::new();
     let window = {
-        let size = LogicalSize::new(WIDTH, HEIGHT);
+        let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
         WindowBuilder::new()
-            .with_title("celluars")
+            .with_title("Hello Pixels + egui")
             .with_inner_size(size)
             .with_min_inner_size(size)
             .build(&event_loop)
             .unwrap()
     };
 
-    let mut pixels = {
+    let (mut pixels, mut framework) = {
         let window_size = window.inner_size();
+        let scale_factor = window.scale_factor() as f32;
         let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
-        Pixels::new(WIDTH, HEIGHT, surface_texture)?
+        let pixels = Pixels::new(WIDTH, HEIGHT, surface_texture)?;
+        let framework = Framework::new(
+            &event_loop,
+            window_size.width,
+            window_size.height,
+            scale_factor,
+            &pixels,
+        );
+
+        (pixels, framework)
     };
     let mut world = World::new();
 
     event_loop.run(move |event, _, control_flow| {
-        // Draw the current frame
-        if let Event::RedrawRequested(_) = event {
-            world.draw(pixels.frame_mut());
-            if let Err(err) = pixels.render() {
-                log_error("pixels.render", err);
+        // Handle input events
+        if input.update(&event) {
+            // Close events
+            if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
                 *control_flow = ControlFlow::Exit;
                 return;
             }
-        }
 
-        // Handle input events
-        if input.update(&event) {
+            // Update the scale factor
+            if let Some(scale_factor) = input.scale_factor() {
+                framework.scale_factor(scale_factor);
+            }
+
+            // Resize the window
+            if let Some(size) = input.window_resized() {
+                if let Err(err) = pixels.resize_surface(size.width, size.height) {
+                    log_error("pixels.resize_surface", err);
+                    *control_flow = ControlFlow::Exit;
+                    return;
+                }
+                framework.resize(size.width, size.height);
+            }
+
             if input.key_pressed(VirtualKeyCode::U) {
                 world.rules = randomize_rules();
             }
@@ -122,24 +133,42 @@ fn main() -> Result<(), Error> {
                 return;
             }
 
-            // Close events
-            if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
-                *control_flow = ControlFlow::Exit;
-                return;
-            }
-
-            // Resize the window
-            if let Some(size) = input.window_resized() {
-                if let Err(err) = pixels.resize_surface(size.width, size.height) {
-                    log_error("pixels.resize_surface", err);
-                    *control_flow = ControlFlow::Exit;
-                    return;
-                }
-            }
-
             // Update internal state and request a redraw
             world.update();
             window.request_redraw();
+        }
+
+        match event {
+            Event::WindowEvent { event, .. } => {
+                // Update egui inputs
+                framework.handle_event(&event);
+            }
+            // Draw the current frame
+            Event::RedrawRequested(_) => {
+                // Draw the world
+                world.draw(pixels.frame_mut());
+
+                // Prepare egui
+                framework.prepare(&window);
+
+                // Render everything together
+                let render_result = pixels.render_with(|encoder, render_target, context| {
+                    // Render the world texture
+                    context.scaling_renderer.render(encoder, render_target);
+
+                    // Render egui
+                    framework.render(encoder, render_target, context);
+
+                    Ok(())
+                });
+
+                // Basic error handling
+                if let Err(err) = render_result {
+                    log_error("pixels.render", err);
+                    *control_flow = ControlFlow::Exit;
+                }
+            }
+            _ => (),
         }
     });
 }
@@ -431,3 +460,51 @@ impl From<CellState> for bool {
         }
     }
 }
+
+// impl WorldxK {
+//     /// Create a new `World` instance that can draw a moving box.
+//     fn new() -> Self {
+//         Self {
+//             box_x: 24,
+//             box_y: 16,
+//             velocity_x: 1,
+//             velocity_y: 1,
+//         }
+//     }
+
+//     /// Update the `World` internal state; bounce the box around the screen.
+//     fn update(&mut self) {
+//         if self.box_x <= 0 || self.box_x + BOX_SIZE > WIDTH as i16 {
+//             self.velocity_x *= -1;
+//         }
+//         if self.box_y <= 0 || self.box_y + BOX_SIZE > HEIGHT as i16 {
+//             self.velocity_y *= -1;
+//         }
+
+//         self.box_x += self.velocity_x;
+//         self.box_y += self.velocity_y;
+//     }
+
+//     /// Draw the `World` state to the frame buffer.
+//     ///
+//     /// Assumes the default texture format: `wgpu::TextureFormat::Rgba8UnormSrgb`
+//     fn draw(&self, frame: &mut [u8]) {
+//         for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
+//             let x = (i % WIDTH as usize) as i16;
+//             let y = (i / WIDTH as usize) as i16;
+
+//             let inside_the_box = x >= self.box_x
+//                 && x < self.box_x + BOX_SIZE
+//                 && y >= self.box_y
+//                 && y < self.box_y + BOX_SIZE;
+
+//             let rgba = if inside_the_box {
+//                 [0x5e, 0x48, 0xe8, 0xff]
+//             } else {
+//                 [0x48, 0xb2, 0xe8, 0xff]
+//             };
+
+//             pixel.copy_from_slice(&rgba);
+//         }
+//     }
+// }
