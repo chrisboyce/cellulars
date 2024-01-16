@@ -181,6 +181,20 @@ impl Gui {
                     }
                 }
 
+                if ui.button("Increment").clicked() {
+                    if let Ok(seed_as_u32) = str::parse::<u32>(&self.rule_seed) {
+                        // Calculate our next value, which will be used both
+                        // as the new value for the text input, and as the
+                        // seed used to generate the new set of random rules
+                        let new_seed = seed_as_u32 + 1;
+                        self.new_seed = Some(new_seed);
+
+                        // Convert the number into a string so it can be used
+                        // in the text input value
+                        self.rule_seed = format!("{}", new_seed);
+                    }
+                }
+
                 // ui.label("Initial Seed:");
                 // if ui.text_edit_singleline(&mut self.initial_seed).changed() {
                 //     println!("{}", &self.initial_seed);
